@@ -50,8 +50,9 @@ jobs:
             os_name="linux"
           else
             os_name="windows"
-          echo "BICEP_FILE_PATH=${{ github.workspace }}/iac/image-template-${os_name}/main.bicep" >> $GITHUN_ENV
-          echo "PARAM_FILE_PATH=${{ github.workspace }}/iac/image-template-${os_name}/${env_lower)-${{ inputs.os_type }}.bicepparam" >> $GITHUN_ENV
+          fi
+          echo "BICEP_FILE_PATH=${{ github.workspace }}/iac/image-template-${os_name}/main.bicep" >> $GITHUB_ENV
+          echo "PARAM_FILE_PATH=${{ github.workspace }}/iac/image-template-${os_name}/${env_lower}-${{ inputs.os_type }}.bicepparam" >> $GITHUB_ENV
 
       - name: Azure Login
         uses: azure/login@v2

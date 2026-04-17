@@ -91,7 +91,7 @@ resource imageTemplate 'Microsoft.VirtualMachineImages/imageTemplates@2024-02-01
           'response=$(curl "http://169.254.169.254/metadata/identity/oauth2/token?api-version=2018-02-01&resource=https%3A%2F%2Fstorage.azure.com%2F" -H Metadata:true -s)'
           'access_token=$(echo $response | python3 -c "import sys, json; print (json.load(sys.stdin).access_token)")'
           'echo "Access token using a User-Assigned Managed Identity."'
-          'headers="Authorization: Bearer $token"'
+          'headers="Authorization: Bearer $access_token"'
           'wget --header="$headers" --header="x-ms-version: 2024-02-04" "https://${saFqdn}/scripts/${customScriptName}" -O "/tmp/aap_request.py"'
           'wget --header="$headers" --header="x-ms-version: 2024-02-04" "https://${saFqdn}/files/${sshPublicKey}" -O "/tmp/ssh_key"'
         ]

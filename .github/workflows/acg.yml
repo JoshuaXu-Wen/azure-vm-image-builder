@@ -44,8 +44,8 @@ jobs:
         shell: bash
         run: |
           env_lower=$(echo "${{ inputs.environment_type }}" | tr '[:upper:]' '[:lower:]')
-          echo "BICEP_FILE_PATH=${{ github.workspace }}/iac/image-gallery/main.bicep" >> $GITHUN_ENV
-          echo "PARAM_FILE_PATH=${{ github.workspace }}/iac/image-gallery/${env_lower)-${{ inputs.os_type }}.bicepparam" >> $GITHUN_ENV
+          echo "BICEP_FILE_PATH=${{ github.workspace }}/iac/image-gallery/main.bicep" >> $GITHUB_ENV
+          echo "PARAM_FILE_PATH=${{ github.workspace }}/iac/image-gallery/${env_lower}-${{ inputs.os_type }}.bicepparam" >> $GITHUB_ENV
 
       - name: Azure Login
         uses: azure/login@v2

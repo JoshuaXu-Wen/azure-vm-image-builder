@@ -29,7 +29,7 @@ jobs:
         shell: bash
         run: |
           env_lower=$(echo "${{ inputs.environment_type }}" | tr '[:upper:]' '[:lower:]')
-          echo "ENV_LOWER=$env_lower" >> $GITHUN_ENV
+          echo "ENV_LOWER=$env_lower" >> $GITHUB_ENV
 
       - name: Azure Login
         uses: azure/login@v2

@@ -56,7 +56,7 @@ jobs:
             --account-name $sa_name \
             --source ${{ env.file-path }} \
             --overwrite true \
-            -- auth-mode login
+            --auth-mode login
 
           az storage blob list \
             --account-name $sa_name \
