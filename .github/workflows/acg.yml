@@ -1,0 +1,70 @@
+name: Create Image Gallery
+run-name: Create Azure Computer Gallery in ${{ inputs.environment_type }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment_type:
+        description: 'Environment Type'
+        required: true
+        type: choice
+        options:
+          - DEV
+          - PROD
+      location:
+        description: 'Azure Region for Deployment'
+        required: true
+        type: choice
+        options:
+          - australiaeast
+      os_type:
+        description: 'Operating System Type'
+        required: true
+        type: choice
+        options:
+          - rhel9
+          - rhel10
+          - win22
+          - win25
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  build-image:
+    runs-on: cicd
+    environment: ${{ inputs.environment_type }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Get parameters
+        id: get_aib_param
+        shell: bash
+        run: |
+          env_lower=$(echo "${{ inputs.environment_type }}" | tr '[:upper:]' '[:lower:]')
+          echo "BICEP_FILE_PATH=${{ github.workspace }}/iac/image-gallery/main.bicep" >> $GITHUN_ENV
+          echo "PARAM_FILE_PATH=${{ github.workspace }}/iac/image-gallery/${env_lower)-${{ inputs.os_type }}.bicepparam" >> $GITHUN_ENV
+
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+
+      - name: Deploy Bicep template
+        id: deploy
+        uses: azure/bicep-deploy@v2
+        with:
+          type: deployment
+          operation: create
+          name: Deployment-${{ github.run_id }}
+          location: ${{ inputs.location}}
+          scope: resourceGroup
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+          resource-group-name: ${{ vars.ACG_RESOURCE_GROUP_NAME }}
+          template-file: $BICEP_FILE_PATH
+          parameters-file: $PARAM_FILE_PATH
+

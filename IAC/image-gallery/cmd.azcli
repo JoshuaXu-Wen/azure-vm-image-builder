@@ -1,0 +1,2 @@
+az deployment group create -g imagebuilder-dev-01 --template-file main.bicep --parameters rhel9.bicepparam
+az deployment group create -g imagebuilder-dev-01 --template-file main.bicep --parameters win22.bicepparam

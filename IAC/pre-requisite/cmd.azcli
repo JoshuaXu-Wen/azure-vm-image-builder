@@ -1,0 +1,1 @@
+az deployment group create -g pre-requisite-rg-dev-01 --template-file main.bicep --parameters parameters.bicepparam

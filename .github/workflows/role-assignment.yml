@@ -1,0 +1,55 @@
+name: Role Assignment
+run-name: Assign roles in ${{ inputs.environment_type }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment_type:
+        description: 'Environment Type'
+        required: true
+        type: choice
+        options:
+          - DEV
+          - PROD
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  role-assignment:
+    runs-on: cicd
+    environment: ${{ inputs.environment_type }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Get parameters
+        id: get_param
+        shell: bash
+        run: |
+          env_lower=$(echo "${{ inputs.environment_type }}" | tr '[:upper:]' '[:lower:]')
+          echo "ENV_LOWER=$env_lower" >> $GITHUN_ENV
+
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+
+      - name: Role Assignments
+        id: deploy_role_assignments
+        env: 
+          BICEP_FILE_PATH: "${{ github.workspace }}/iac/role-assignment/main.bicep"
+        uses: azure/bicep-deploy@v2
+        with:
+          type: deployment
+          operation: create
+          name: Deployment-${{ github.run_id }}
+          scope: resourceGroup
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+          resource-group-name: ${{ vars.AIB_RESOURCE_GROUP_NAME }}
+          template-file: ${{ env.BICEP_FILE_PATH }}
+          parameters: |
+            environment: $ENV_LOWER

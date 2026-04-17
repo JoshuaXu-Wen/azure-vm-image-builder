@@ -1,0 +1,177 @@
+name: Build Image
+run-name: Build ${{ inputs.os_type }} golden image in ${{ inputs.environment_type }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment_type:
+        description: 'Environment Type'
+        required: true
+        type: choice
+        options:
+          - DEV
+          - PROD
+      location:
+        description: 'Azure Region for Deployment'
+        required: true
+        type: choice
+        options:
+          - australiaeast
+      os_type:
+        description: 'Operating System Type'
+        required: true
+        type: choice
+        options:
+          - rhel9
+          - rhel10
+          - win22
+          - win25
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  build-image:
+    runs-on: cicd
+    environment: ${{ inputs.environment_type }}
+    outputs:
+      image_template_id: ${{ steps.get_template_id.outputs.image_template_id }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Get parameters
+        id: get_aib_param
+        shell: bash
+        run: |
+          env_lower=$(echo "${{ inputs.environment_type }}" | tr '[:upper:]' '[:lower:]')
+          if [[ "${{ inputs.os_type }}" == *"rhel"* ]]; then
+            os_name="linux"
+          else
+            os_name="windows"
+          echo "BICEP_FILE_PATH=${{ github.workspace }}/iac/image-template-${os_name}/main.bicep" >> $GITHUN_ENV
+          echo "PARAM_FILE_PATH=${{ github.workspace }}/iac/image-template-${os_name}/${env_lower)-${{ inputs.os_type }}.bicepparam" >> $GITHUN_ENV
+
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+
+      - name: Deploy Bicep template
+        id: deploy
+        uses: azure/bicep-deploy@v2
+        with:
+          type: deployment
+          operation: create
+          name: Deployment-${{ github.run_id }}
+          location: ${{ inputs.location}}
+          scope: resourceGroup
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+          resource-group-name: ${{ vars.AIB_RESOURCE_GROUP_NAME }}
+          template-file: $BICEP_FILE_PATH
+          parameters-file: $PARAM_FILE_PATH
+          parameters: |
+            aapServer: ${{ vars.AAP_SERVER }}
+            aapToken: ${{ secrets.AAP_TOKEN }}
+            adminUsername: ${{ secrets.VM_USERNAME }}
+            adminPassword: ${{ secrets.VM_PASSWORD }}
+
+      - name: Get Image Template Id
+        id: get_template_id
+        shell: bash
+        run: |
+          echo "image_template_id=${{ steps.deploy.outputs.imageTemplateId}}" >> $GITHUB_OUTPUT
+
+  check-image-status:
+    runs-on: cicd
+    environment: ${{ inputs.environment_type }}
+    needs: build-image
+    env:
+      image_template_id: ${{ needs.build-image.outputs.image_template_id }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+
+      - name: Quick check image build status, identify early termination
+        id: check_image_build_1
+        shell: bash
+        run: |
+          sleep 5m
+          max_retries=5
+          i=0 
+          while [[ $i -lt $max_retries ]]; do
+            runStatus=$(az image builder show --ids ${{ env.image_template_id }} --query "lastRunStatus.runState" -o tsv)
+            if [[ -z $runStatus ]]; then
+              exit 1
+            fi
+            if [[ "$runStatus" == "Succeeded" ]]; then 
+              echo "Image created successfully, delete the template"
+              az image builder delete --ids ${{ env.image_template_id }}
+              break
+            elif [[ "$runStatus" == "Failed" ]]; then
+              echo "Image template create failed."
+              exit 2
+            else
+              echo "Image template status: $runStatus, waiting for 3 minutes before check again..."
+              sleep 3m
+            fi
+            i=$((i+1))
+          done
+
+          if [[ $i -ge $max_retries ]]; then
+            echo " no instant failure detected, proceeding to wait for the build completion..."
+          fi
+      - name: Wait for 30 minutes before checking again
+        shell: bash
+        run: sleep 30m
+
+      # OpenID connect token may expire during long wait (1 hour), re-login to Azure
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+
+      - name: Check the image build status until completion
+        shell: bash
+        run: |
+          max_retries=20
+          i=0 
+          while [[ $i -lt $max_retries ]]; do
+            runStatus=$(az image builder show --ids ${{ env.image_template_id }} --query "lastRunStatus.runState" -o tsv)
+            if [[ -z $runStatus ]]; then
+              exit 1
+            fi
+            if [[ "$runStatus" == "Succeeded" ]]; then 
+              echo "Image created successfully, delete the template"
+              az image builder delete --ids ${{ env.image_template_id }}
+              break
+            elif [[ "$runStatus" == "Failed" ]]; then
+              echo "Image template create failed."
+              exit 2
+            else
+              echo "Image template status: $runStatus, waiting for 3 minutes before check again..."
+              sleep 3m
+            fi
+            i=$((i+1))
+          done
+
+          if [[ $i -ge $max_retries ]]; then
+            echo "Image template did not succeed after $max_retries. cancel the build process"
+            az image builder cancel --ids  ${{ env.image_template_id }}
+            exit 3
+          fi
+        
+
+

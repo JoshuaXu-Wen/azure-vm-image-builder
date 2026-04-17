@@ -1,0 +1,66 @@
+name: Upload file to Storage Account
+run-name: Upload file to storage account in ${{ inputs.environment_type }} environment
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment_type:
+        description: 'Environment Type'
+        required: true
+        type: choice
+        options:
+          - DEV
+          - PROD
+      containerName:
+        description: 'Storage Account container name'
+        required: true
+        type: choice
+        options:
+          - 'scripts'
+          - 'files'
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  file-path: '${{ github.workspace }}/${{ inputs.containerName }}'
+
+jobs:
+  build-image:
+    runs-on: cicd
+    environment: ${{ inputs.environment_type }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+
+      - name: Upload files to SA
+        id: upload_files
+        shell: bash
+        run: | 
+          if [[ "${{ inputs.environment_type }}" == "DEV" ]]; then
+            sa_name='stdimagebuilder01'
+          elif [[ "${{ inputs.environment_type }}" == "PROD" ]]; then
+            sa_name='stpimagebuilder01'
+          fi
+
+          az storage blob upload-batch \
+            --destination ${{ inputs.containerName }} \
+            --account-name $sa_name \
+            --source ${{ env.file-path }} \
+            --overwrite true \
+            -- auth-mode login
+
+          az storage blob list \
+            --account-name $sa_name \
+            --container-name ${{ inputs.containerName }} \
+            --auth-mode login \
+            --output table
+

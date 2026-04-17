@@ -1,0 +1,86 @@
+name: Create Pre-requsite Resources
+run-name: Create pre-requisites in ${{ inputs.environment_type }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment_type:
+        description: 'Environment Type'
+        required: true
+        type: choice
+        options:
+          - DEV
+          - PROD
+      location:
+        description: 'Azure Region for Deployment'
+        required: true
+        type: choice
+        options:
+          - australiaeast
+      os_type:
+        description: 'Operating System Type'
+        required: true
+        type: choice
+        options:
+          - rhel9
+          - rhel10
+          - win22
+          - win25
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  create-pre-requiste-resources:
+    runs-on: cicd
+    environment: ${{ inputs.environment_type }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Get parameters
+        id: get_param
+        shell: bash
+        run: |
+          env_lower=$(echo "${{ inputs.environment_type }}" | tr '[:upper:]' '[:lower:]')
+          echo "ENV_LOWER=$env_lower" >> $GITHUN_ENV
+
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+
+      - name: Create Resource Groups
+        id: deploy_rgs
+        env: 
+          BICEP_FILE_PATH: "${{ github.workspace }}/iac/resource-group/main.bicep"
+        uses: azure/bicep-deploy@v2
+        with:
+          type: deployment
+          operation: create
+          name: Deployment-${{ github.run_id }}
+          location: ${{ inputs.location}}
+          scope: subscription
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+          template-file: ${{ env.BICEP_FILE_PATH }}
+          parameters: |
+            environment: ${{ inputs.environment_type }}
+
+      - name: Create pre-requisite resources
+        id: deploy_pre-requisites
+        env: 
+          BICEP_FILE_PATH: "${{ github.workspace }}/iac/pre-requiste/main.bicep"
+          PARAM_FILE_PATH: "${{ github.workspace }}/iac/pre-requiste/$ENV_LOWER.bicepparam"
+        uses: azure/bicep-deploy@v2
+        with:
+          type: deployment
+          operation: create
+          name: Deployment-${{ github.run_id }}
+          scope: resourceGroup
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+          resource-group-name: ${{ vars.AIB_RESOURCE_GROUP_NAME }}
+          template-file: ${{ env.BICEP_FILE_PATH }}
+          parameters-file: ${{ env.PARAM_FILE_PATH }}
