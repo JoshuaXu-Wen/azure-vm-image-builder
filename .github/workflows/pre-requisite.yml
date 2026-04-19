@@ -17,15 +17,6 @@ on:
         type: choice
         options:
           - australiaeast
-      os_type:
-        description: 'Operating System Type'
-        required: true
-        type: choice
-        options:
-          - rhel9
-          - rhel10
-          - win22
-          - win25
 
 permissions:
   id-token: write
@@ -49,7 +40,7 @@ jobs:
       - name: Azure Login
         uses: azure/login@v2
         with:
-          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           client-id: ${{ secrets.AZURE_CLIENT_ID }}
 
@@ -64,7 +55,7 @@ jobs:
           name: Deployment-${{ github.run_id }}
           location: ${{ inputs.location}}
           scope: subscription
-          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
           template-file: ${{ env.BICEP_FILE_PATH }}
           parameters: |
             environment: ${{ inputs.environment_type }}
@@ -80,7 +71,7 @@ jobs:
           operation: create
           name: Deployment-${{ github.run_id }}
           scope: resourceGroup
-          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
           resource-group-name: ${{ vars.AIB_RESOURCE_GROUP_NAME }}
           template-file: ${{ env.BICEP_FILE_PATH }}
           parameters-file: ${{ env.PARAM_FILE_PATH }}

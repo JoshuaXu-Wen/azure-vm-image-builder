@@ -1,7 +1,25 @@
 
 # Azure VM Image Builder
 
-This repository provides Infrastructure as Code (IaC) templates and automated workflows for building custom Azure Virtual Machine (VM) images using Azure Image Builder. The solution leverages Bicep templates for declarative infrastructure deployment and GitHub Actions for CI/CD automation, enabling consistent and repeatable image creation across different environments and operating systems.
+This repository provides Infrastructure as Code (IaC) templates and automated workflows for building custom Azure Virtual Machine (VM) images using Azure Image Builder. The solution leverages Bicep templates for declarative infrastructure deployment and GitHub Actions for CI/CD automation, enabling consistent and repeatable image creation across different environments and operating systems. The solution also takes advantage of Ansible Automation Platform (AAP) to apply custom OS config into golden image.
+
+## Solution Overview
+
+![Solution Overview](Azure-VM-IMAGE-BUIDER.svg)
+
+The Azure VM Image Builder utilize the following Azure services and platform to orchestrate the golden image build.
+
+1. Azure Image Builder (Build Golden Images)
+2. Azure Compute Gallery (Storage Golden Images)
+3. Ansible Automation Platform
+4. GitHub
+
+The following technologies are used to facilitate the procedure:
+
+1. Bicep (Infrastructure as Code), to deploy all Azure resources
+2. Anisble (Configuration as Code), to apply custom configurations to golden image during image builder
+3. Python (Data processing and API Call), to call AAP API in image builder process
+4. GitHub Actions (Orchestration), to orchestrate the deployments
 
 ## Repository Structure
 
@@ -37,6 +55,7 @@ Deploys foundational resources required for image building:
 - **Private DNS Zone**: Enables private connectivity to storage services
 
 **Key Parameters:**
+
 - `location`: Azure region for deployment
 - `environment`: Environment name (dev/prod)
 - `projectName`: Project identifier
@@ -61,6 +80,7 @@ Configures Role-Based Access Control (RBAC) and managed identities:
 - **Custom Roles**: Specialized permissions for image building operations
 
 **Key Features:**
+
 - Least-privilege access principles
 - Scoped to appropriate resource groups
 - Automated identity management
@@ -74,6 +94,7 @@ Sets up Azure Compute Gallery for image storage and distribution:
 - **Replication**: Cross-region image distribution
 
 **Supported OS Types:**
+
 - RHEL 9/10 (Linux)
 - Windows Server 2022/2025
 
@@ -82,6 +103,7 @@ Sets up Azure Compute Gallery for image storage and distribution:
 Defines Azure Image Builder templates for custom image creation:
 
 **Common Features:**
+
 - Base OS customization (RHEL/Windows Server)
 - Software installation and configuration
 - Security hardening
@@ -89,17 +111,20 @@ Defines Azure Image Builder templates for custom image creation:
 - Integration with Ansible Automation Platform (AAP)
 
 **Linux-Specific (RHEL):**
+
 - SSH key injection
 - Python environment setup
 - AAP workflow triggering for configuration management
 
 **Windows-Specific:**
+
 - WinRM configuration
 - PowerShell-based customization
 - Python module installation
 - AAP integration
 
 **Key Parameters:**
+
 - `galleryImageId`: Target gallery image definition
 - `stagingResourceGroupName`: Temporary build resources
 - `aapServer`, `aapToken`: AAP integration credentials
@@ -131,11 +156,12 @@ Before running workflows, ensure:
 **Trigger:** Manual (`workflow_dispatch`)
 
 **Inputs:**
+
 - `environment_type`: DEV or PROD
 - `location`: Azure region (e.g., australiaeast)
-- `os_type`: OS type (not used in this workflow)
 
 **What it does:**
+
 1. Deploys VNet, storage account, and private DNS zone
 2. Configures network security and private endpoints
 3. Sets up secure artifact storage
@@ -149,9 +175,11 @@ Before running workflows, ensure:
 **Trigger:** Manual (`workflow_dispatch`)
 
 **Inputs:**
+
 - `environment_type`: DEV or PROD
 
 **What it does:**
+
 1. Creates user-assigned managed identities
 2. Assigns necessary roles for image building operations
 3. Configures permissions for storage and compute resources
@@ -165,11 +193,13 @@ Before running workflows, ensure:
 **Trigger:** Manual (`workflow_dispatch`)
 
 **Inputs:**
+
 - `environment_type`: DEV or PROD
 - `location`: Azure region
 - `os_type`: Target OS type
 
 **What it does:**
+
 1. Creates shared image gallery
 2. Defines image definitions for specified OS
 3. Configures gallery permissions
@@ -183,17 +213,20 @@ Before running workflows, ensure:
 **Trigger:** Manual (`workflow_dispatch`)
 
 **Inputs:**
+
 - `environment_type`: DEV or PROD
 - `location`: Azure region
 - `os_type`: OS type (rhel9, rhel10, win22, win25)
 
 **What it does:**
+
 1. Deploys image builder template
 2. Initiates image build process
 3. Monitors build status and completion
 4. Distributes image to configured regions
 
 **Key Features:**
+
 - Supports both Linux (RHEL) and Windows builds
 - Integrates with AAP for post-build configuration
 - Automatic cleanup of temporary resources
@@ -222,6 +255,7 @@ Execute workflows in the specified order:
 1. Run `Pre-requisite Resources` workflow
 2. Run `Role Assignment` workflow  
 3. Run `Create Image Gallery` workflow
+4. Run `Upload File to Storage Account` workflow
 
 ### 3. Build Custom Images
 
@@ -237,9 +271,9 @@ The image templates include AAP integration for automated configuration:
 - Windows builds use PowerShell for initial setup, then AAP for advanced configuration
 - Monitor AAP job status through the Python script in `scripts/aap_request.py`
 
-## Next Plan
+#### Ansible Automation
 
-Adding ansible code that will be used in Ansible Automation Platform (AAP) to complete the E2E automation.
+The ansible automation roles and playbooks are stored in another repository and could be loaded into AAP. Refer to https://github.com/JoshuaXu-Wen/ansible-rhel for RHEL Ansible roles and playbook.
 
 ## Security Considerations
 
