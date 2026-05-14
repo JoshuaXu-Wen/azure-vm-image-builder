@@ -204,7 +204,7 @@ resource imageTemplate 'Microsoft.VirtualMachineImages/imageTemplates@2024-02-01
         runAsSystem: true  
         inline: [
           '$EXE_FILE=Get-ChildItem -Path "C:\\ProgramData\\Package Cache" -Recurse -Filter "*.exe" -File | Where-Object {'
-          '  $fileV_FullName -match "hosting" -or $.FullName -match "dotnet"'
+          '  $_.FullName -match "hosting" -or $_.FullName -match "dotnet"'
           '} | Select-Object -ExpandProperty FullName'
           'if ($EXE_FILE) {'
           '  Write-Host "Found .Net hosting bundle installer at $EXE_FILE"'
